@@ -38,6 +38,19 @@ check_dependencies() {
     touch "$hidden_file"
 }
 
+# Function to validate IPv4 address
+validate_ip() {
+    local ip=$1
+    local stat=1
+
+    # Regex for IPv4
+    if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        stat=0
+    fi
+
+    return $stat
+}
+
 # IP address from Raycast prompt
 ip_address=$1
 
@@ -56,6 +69,12 @@ if [[ ! -e "$hidden_file" ]]; then
         echo "Unable to run mtr due to missing dependencies."
         exit 1
     fi
+fi
+
+# Validate IPv4 address
+if ! validate_ip "$ip_address"; then
+    echo "Invalid IPv4 address provided. Please enter a valid IPv4 address."
+    exit 1
 fi
 
 # Try to run MTR
