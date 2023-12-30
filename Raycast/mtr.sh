@@ -50,14 +50,13 @@ run_mtr() {
     -e "end tell"
 }
 
-# Perform checks if hidden file does not exist or rerun checks if mtr fails
-if [ ! -f "$hidden_file" ]; then
-    check_dependencies || exit 1
+# Perform checks if hidden file does not exist
+if [[ ! -e "$hidden_file" ]]; then
+    if ! check_dependencies; then
+        echo "Unable to run mtr due to missing dependencies."
+        exit 1
+    fi
 fi
 
-# Try to run MTR, rerun checks if it fails
-if ! run_mtr; then
-    rm -f "$hidden_file"
-    check_dependencies || exit 1
-    run_mtr
-fi
+# Try to run MTR
+run_mtr
