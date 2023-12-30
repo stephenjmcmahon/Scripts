@@ -19,38 +19,40 @@
 # Hidden file path
 hidden_file="$HOME/.raycast_lldpd_checked"
 
-# Function to check Homebrew and LLDPD
-check_dependencies() {
-    # Check if Homebrew is installed
+# Function to check if a given package is installed
+check_package_installation() {
+    local package=$1
+    local binary_path=$2
+
     if ! command -v brew &> /dev/null; then
         echo "Homebrew could not be found, please ensure it is installed and in the PATH"
         return 1
     fi
 
-    # Check if LLDPD is installed
-    if ! brew list lldpd | grep -q 'sbin/lldpd'; then
-        echo "lldpd could not be found in the expected location (brew list lldpd | grep sbin/lldpd), please ensure it is installed via Homebrew"
+    if ! brew list "$package" | grep -q "$binary_path"; then
+        echo "$package could not be found in the expected location (brew list $package | grep $binary_path), please ensure it is installed via Homebrew"
         return 1
     fi
 
-    # Mark as checked
-    touch "$hidden_file"
+    return 0
 }
 
 # Function to discover and cache the path of lldpcli
 discover_lldpcli_path() {
-    lldpcli_path=$(brew list lldpd | grep sbin/lldpcli)
+    lldpcli_path=$(find "$(brew --prefix lldpd)/sbin" -name lldpcli 2>/dev/null)
 
-    # Check if more than one path is found
+    if [ -z "$lldpcli_path" ]; then
+        echo "lldpcli could not be found, please ensure lldpd is installed via Homebrew"
+        exit 1
+    fi
+
     if [ "$(echo "$lldpcli_path" | wc -l)" -gt 1 ]; then
         echo "More than one expected location for lldpcli was found. Please resolve this issue."
         exit 1
     fi
 
-    # Cache the path if found
-    if [ -n "$lldpcli_path" ]; then
-        echo "$lldpcli_path" > "$HOME/.raycast_lldpcli_location"
-    fi
+    echo "$lldpcli_path" > "$HOME/.raycast_lldpcli_location"
+    touch "$hidden_file"
 }
 
 # Function to run the lldpcli command
@@ -63,7 +65,7 @@ run_lldpcli() {
         # remove cached path
         rm "$HOME/.raycast_lldpcli_location"
         # Recheck dependencies
-        check_dependencies
+        check_package_installation "lldpd" "sbin/lldpd"
         # Try to re-discover the path
         discover_lldpcli_path
         # Rerun the command if the path is found
@@ -82,10 +84,11 @@ run_lldpcli() {
 # Perform checks if hidden file does not exist
 if [[ ! -e "$hidden_file" ]]; then
     echo "Setting up for the first time. Caching for speed..."
-    if ! check_dependencies; then
+    if ! check_package_installation "lldpd" "sbin/lldpd"; then
         echo "Unable to run lldpd due to missing dependencies."
         exit 1
     fi
+    discover_lldpcli_path
 fi
 
 # Default empty path for lldpcli
@@ -96,14 +99,9 @@ if [ -f "$HOME/.raycast_lldpcli_location" ]; then
     lldpcli_path=$(cat "$HOME/.raycast_lldpcli_location")
 fi
 
-# If no cached file found, discover the path
-if [ -z "$lldpcli_path" ]; then
-    discover_lldpcli_path
-fi
-
 # If lldpcli still not found, exit with an error
 if [ -z "$lldpcli_path" ]; then
-    echo "lldpcli could not be found in the expected location (brew list lldpd | grep sbin/lldpcli), please ensure it is installed via Homebrew"
+    echo "lldpcli could not be found in the expected location, please ensure it is installed via Homebrew"
     exit 1
 fi
 
