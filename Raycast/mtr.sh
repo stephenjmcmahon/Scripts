@@ -5,7 +5,7 @@
 # Metadata for configuration of the command in Raycast
 # @raycast.schemaVersion 1
 # @raycast.title Run MTR Command
-# @raycast.mode silent
+# @raycast.mode fullOutput
 # @raycast.icon 🌐
 # @raycast.packageName Network
 # @raycast.argument1 { "type": "text", "placeholder": "Enter IP Address" }
@@ -65,10 +65,19 @@ run_mtr() {
 
 # Perform checks if hidden file does not exist
 if [[ ! -e "$hidden_file" ]]; then
+    echo "Setting up for the first time. Caching for speed..."
+
     if ! check_dependencies; then
-        echo "Unable to run mtr due to missing dependencies."
+        echo "Unable to run mtr due to missing dependencies. Troubleshooting steps:"
+        echo "1. Verify Homebrew installation: Run 'brew --version' and all below commands in the terminal."
+        echo "   - If Homebrew is not installed, visit https://brew.sh for installation instructions."
+        echo "2. Check if mtr is installed: Run 'brew list mtr'."
+        echo "   - If mtr is not installed, run 'brew install mtr' to install it."
+        echo "3. Verify mtr installation and location: Run 'brew list mtr | grep -q 'sbin/mtr'."
+        echo "After addressing these steps, please retry running this script."
         exit 1
     fi
+    echo "First time setup checks completed successfully."
 fi
 
 # Validate IPv4 address
