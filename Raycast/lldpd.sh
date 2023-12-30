@@ -90,7 +90,7 @@ fi
 
 # If lldpcli still not found, exit with an error
 if [ -z "$lldpcli_path" ]; then
-    echo "lldpcli could not be found, please ensure it is installed via Homebrew"
+    echo "lldpcli could not be found in the expected location (brew list lldpd | grep sbin/lldpcli), please ensure it is installed via Homebrew"
     exit 1
 fi
 
