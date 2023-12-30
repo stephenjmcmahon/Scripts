@@ -26,11 +26,13 @@ check_package_installation() {
 
     if ! command -v brew &> /dev/null; then
         echo "Homebrew could not be found, please ensure it is installed and in the PATH"
+        echo "You can verify if Homebrew is installed and configured correctly by running 'brew --version' in the terminal."
         return 1
     fi
 
     if ! brew list "$package" | grep -q "$binary_path"; then
-        echo "$package could not be found in the expected location (brew list $package | grep $binary_path), please ensure it is installed via Homebrew"
+        echo "$package could not be found in the expected location, please ensure it is installed via Homebrew"
+        echo "You can verify if $package is installed correctly by running 'brew list $package | grep $binary_path' in the terminal."
         return 1
     fi
 
@@ -39,20 +41,30 @@ check_package_installation() {
 
 # Function to discover and cache the path of lldpcli
 discover_lldpcli_path() {
-    lldpcli_path=$(find "$(brew --prefix lldpd)/sbin" -name lldpcli 2>/dev/null)
+    local retries=3
+    local attempt=1
+    while [ $attempt -le $retries ]; do
+        lldpcli_path=$(find "$(brew --prefix lldpd)/sbin" -name lldpcli 2>/dev/null)
 
-    if [ -z "$lldpcli_path" ]; then
-        echo "lldpcli could not be found, please ensure lldpd is installed via Homebrew"
-        exit 1
-    fi
+        if [ -n "$lldpcli_path" ]; then
+            if [ "$(echo "$lldpcli_path" | wc -l)" -gt 1 ]; then
+                echo "More than one expected location for lldpcli was found, please resolve this issue."
+                echo "You can review the multiple locations detected by running 'find "$(brew --prefix lldpd)/sbin" -name lldpcli 2>/dev/null' in the terminal."
+                exit 1
+            fi
+            echo "$lldpcli_path" > "$HOME/.raycast_lldpcli_location"
+            touch "$hidden_file"
+            return 0
+        fi
 
-    if [ "$(echo "$lldpcli_path" | wc -l)" -gt 1 ]; then
-        echo "More than one expected location for lldpcli was found. Please resolve this issue."
-        exit 1
-    fi
+        echo "Attempt $attempt to find lldpcli failed. Retrying..."
+        attempt=$((attempt + 1))
+        sleep 1
+    done
 
-    echo "$lldpcli_path" > "$HOME/.raycast_lldpcli_location"
-    touch "$hidden_file"
+    echo "lldpcli could not be found after $retries attempts, please ensure lldpd is installed via Homebrew"
+    echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
+    exit 1
 }
 
 # Function to run the lldpcli command
@@ -73,6 +85,7 @@ run_lldpcli() {
             output=$("$lldpcli_path" show neighbors detail 2>&1)
         else
             echo "lldpcli could not be found, please ensure it is installed via Homebrew"
+            echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
             exit 1
         fi
     fi
@@ -86,6 +99,14 @@ if [[ ! -e "$hidden_file" ]]; then
     echo "Setting up for the first time. Caching for speed..."
     if ! check_package_installation "lldpd" "sbin/lldpd"; then
         echo "Unable to run lldpd due to missing dependencies."
+        echo "Troubleshooting steps:"
+        echo "1. Verify Homebrew installation: Run 'brew --version' and all below commands in the terminal."
+        echo "   - If Homebrew is not installed, visit https://brew.sh for installation instructions."
+        echo "2. Check if LLDPD is installed: Run 'brew list lldpd'."
+        echo "   - If LLDPD is not installed, run 'brew install lldpd' to install it."
+        echo "3. Verify 'lldpcli' installation and location: Run 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null'."
+        echo "   - There should only be one instance of 'lldpcli' present. If multiple or none are found, ensure LLDPD installation is correct."
+        echo "After addressing these steps, please retry running this script."
         exit 1
     fi
     discover_lldpcli_path
@@ -102,6 +123,7 @@ fi
 # If lldpcli still not found, exit with an error
 if [ -z "$lldpcli_path" ]; then
     echo "lldpcli could not be found in the expected location, please ensure it is installed via Homebrew"
+    echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
     exit 1
 fi
 
