@@ -63,7 +63,7 @@ discover_lldpcli_path() {
     done
 
     echo "lldpcli could not be found after $retries attempts, please ensure lldpd is installed via Homebrew"
-    echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
+    echo "You can verify if lldpcli is installed correctly by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
     exit 1
 }
 
@@ -85,7 +85,7 @@ run_lldpcli() {
             output=$("$lldpcli_path" show neighbors detail 2>&1)
         else
             echo "lldpcli could not be found, please ensure it is installed via Homebrew"
-            echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
+            echo "You can verify if lldpcli is installed correctly by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
             exit 1
         fi
     fi
@@ -123,7 +123,7 @@ fi
 # If lldpcli still not found, exit with an error
 if [ -z "$lldpcli_path" ]; then
     echo "lldpcli could not be found in the expected location, please ensure it is installed via Homebrew"
-    echo "You can verify if lldpcli is installed correctly per the script by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
+    echo "You can verify if lldpcli is installed correctly by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
     exit 1
 fi
 
