@@ -66,9 +66,12 @@ run_lldpcli() {
     echo "$output"
 }
 
-# Check if dependencies have been verified before
-if [ ! -f "$hidden_file" ]; then
-    check_dependencies
+# Perform checks if hidden file does not exist
+if [[ ! -e "$hidden_file" ]]; then
+    if ! check_dependencies; then
+        echo "Unable to run lldpd due to missing dependencies."
+        exit 1
+    fi
 fi
 
 # Default empty path for lldpcli
