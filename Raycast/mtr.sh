@@ -11,7 +11,7 @@
 # @raycast.argument1 { "type": "text", "placeholder": "Enter IP Address" }
 
 # Documentation:
-# @raycast.description This script opens a Terminal window and runs the mtr command with the IP provided.
+# @raycast.description This script opens a terminal window and runs the mtr command with the IP provided.
 # @raycast.author Stephen McMahon
 # @raycast.authorURL https://github.com/stephenjmcmahon
 # @raycast.dependencies Homebrew (https://brew.sh/), mtr (https://formulae.brew.sh/formula/mtr)
@@ -30,7 +30,7 @@ check_dependencies() {
 
     # Check if MTR is installed
     if ! brew list mtr | grep -q 'sbin/mtr'; then
-        echo "mtr could not be found in the expected location (brew list mtr | grep sbin/mtr), please ensure it is installed via Homebrew"
+        echo "MTR could not be found in the expected location (brew list mtr | grep sbin/mtr), please ensure it is installed via Homebrew"
         return 1
     fi
 
@@ -68,12 +68,12 @@ if [[ ! -e "$hidden_file" ]]; then
     echo "Setting up for the first time. Caching for speed..."
 
     if ! check_dependencies; then
-        echo "Unable to run mtr due to missing dependencies. Troubleshooting steps:"
+        echo "Unable to run MTR due to missing dependencies. Troubleshooting steps:"
         echo "1. Verify Homebrew installation: Run 'brew --version' and all below commands in the terminal."
         echo "   - If Homebrew is not installed, visit https://brew.sh for installation instructions."
-        echo "2. Check if mtr is installed: Run 'brew list mtr'."
-        echo "   - If mtr is not installed, run 'brew install mtr' to install it."
-        echo "3. Verify mtr installation and location: Run 'brew list mtr | grep -q 'sbin/mtr'."
+        echo "2. Check if MTR is installed: Run 'brew list mtr'."
+        echo "   - If MTR is not installed, run 'brew install mtr' to install it."
+        echo "3. Verify MTR installation and location: Run 'brew list mtr | grep -q 'sbin/mtr'."
         echo "After addressing these steps, please retry running this script."
         exit 1
     fi
