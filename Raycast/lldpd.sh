@@ -39,13 +39,14 @@ check_package_installation() {
     return 0
 }
 
-# Function to discover and cache the path of lldpcli
+# Function to discover and cache the path of lldpcli with retry logic
 discover_lldpcli_path() {
     local retries=3
     local attempt=1
     while [ $attempt -le $retries ]; do
         lldpcli_path=$(find "$(brew --prefix lldpd)/sbin" -name lldpcli 2>/dev/null)
 
+        # Checking for multiple installations
         if [ -n "$lldpcli_path" ]; then
             if [ "$(echo "$lldpcli_path" | wc -l)" -gt 1 ]; then
                 echo "More than one expected location for lldpcli was found, please resolve this issue."
@@ -74,12 +75,15 @@ run_lldpcli() {
 
     # If the command fails, recheck dependencies and try again
     if [[ $output == *"lldpcli: command not found"* ]]; then
-        # remove cached path
+        # Remove cached path
         rm "$HOME/.raycast_lldpcli_location"
+
         # Recheck dependencies
         check_package_installation "lldpd" "sbin/lldpd"
+
         # Try to re-discover the path
         discover_lldpcli_path
+
         # Rerun the command if the path is found
         if [ -n "$lldpcli_path" ]; then
             output=$("$lldpcli_path" show neighbors detail 2>&1)
@@ -98,14 +102,13 @@ run_lldpcli() {
 if [[ ! -e "$hidden_file" ]]; then
     echo "Setting up for the first time. Caching for speed..."
     if ! check_package_installation "lldpd" "sbin/lldpd"; then
-        echo "Unable to run lldpd due to missing dependencies."
-        echo "Troubleshooting steps:"
+        echo "Unable to run lldpd due to missing dependencies. Troubleshooting steps:"
         echo "1. Verify Homebrew installation: Run 'brew --version' and all below commands in the terminal."
         echo "   - If Homebrew is not installed, visit https://brew.sh for installation instructions."
-        echo "2. Check if LLDPD is installed: Run 'brew list lldpd'."
-        echo "   - If LLDPD is not installed, run 'brew install lldpd' to install it."
+        echo "2. Check if lldpd is installed: Run 'brew list lldpd'."
+        echo "   - If lldpd is not installed, run 'brew install lldpd' to install it."
         echo "3. Verify 'lldpcli' installation and location: Run 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null'."
-        echo "   - There should only be one instance of 'lldpcli' present. If multiple or none are found, ensure LLDPD installation is correct."
+        echo "   - There should only be one instance of 'lldpcli' present. If multiple or none are found, ensure lldpd installation is correct."
         echo "After addressing these steps, please retry running this script."
         exit 1
     fi
@@ -120,11 +123,22 @@ if [ -f "$HOME/.raycast_lldpcli_location" ]; then
     lldpcli_path=$(cat "$HOME/.raycast_lldpcli_location")
 fi
 
-# If lldpcli still not found, exit with an error
+# If lldpcli path not found, attempt rediscovery
 if [ -z "$lldpcli_path" ]; then
-    echo "lldpcli could not be found in the expected location, please ensure it is installed via Homebrew"
-    echo "You can verify if lldpcli is installed correctly by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
-    exit 1
+    echo "Cached lldpcli path not found. Attempting to rediscover..."
+    discover_lldpcli_path
+
+    # Recheck if lldpcli path is now available
+    if [ -f "$HOME/.raycast_lldpcli_location" ]; then
+        lldpcli_path=$(cat "$HOME/.raycast_lldpcli_location")
+    fi
+
+    # If lldpcli still not found, exit with an error
+    if [ -z "$lldpcli_path" ]; then
+        echo "lldpcli could not be found in the expected location, please ensure it is installed via Homebrew"
+        echo "You can verify if lldpcli is installed correctly by running 'find \"$(brew --prefix lldpd)/sbin\" -name lldpcli 2>/dev/null' in the terminal."
+        exit 1
+    fi
 fi
 
 # Run the lldpcli command function
