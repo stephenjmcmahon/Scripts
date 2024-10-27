@@ -1,6 +1,6 @@
 # Scripts
 
-Scripts for personal use at work at home
+Scripts for personal use at work at home.
 
 ## Raycast
 
