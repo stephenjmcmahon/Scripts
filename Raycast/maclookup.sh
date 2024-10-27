@@ -4,7 +4,7 @@
 
 # Metadata for configuration in Raycast
 # @raycast.schemaVersion 1
-# @raycast.title Lookup MAC Address Vendor
+# @raycast.title Lookup MAC Address
 # @raycast.mode fullOutput
 # @raycast.icon 💻
 # @raycast.packageName Network
