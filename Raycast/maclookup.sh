@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# IMPORTANT: Don't forget to give the script "execute" permission by running 'chmod +x formatmac.sh'
+
 # Metadata for configuration in Raycast
 # @raycast.schemaVersion 1
 # @raycast.title Lookup MAC Address Vendor
