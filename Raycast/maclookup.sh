@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# IMPORTANT: Don't forget to give the script "execute" permission by running 'chmod +x formatmac.sh'
-
 # Metadata for configuration in Raycast
 # @raycast.schemaVersion 1
 # @raycast.title Lookup MAC Address
@@ -11,7 +9,7 @@
 # @raycast.argument1 { "type": "text", "placeholder": "Enter MAC Address" }
 
 # Documentation:
-# @raycast.description This script checks if the provided MAC address is randomized, formats it, and looks up the MAC vendor using the macvendorlookup API which is graciously provided for free.
+# @raycast.description This script checks if the provided MAC address is randomized, formats it, and looks up the MAC vendor using the macvendorlookup API.
 # @raycast.author Stephen McMahon
 # @raycast.authorURL https://github.com/stephenjmcmahon
 # @raycast.credit macvendorlookup (https://www.macvendorlookup.com/)
@@ -68,28 +66,37 @@ fi
 # Perform the API lookup if the MAC address is not private
 response=$(curl -s "https://www.macvendorlookup.com/api/v2/${mac_address}")
 
-# Format the response using sed and awk for readability
+# Format the response for readability
 if [[ "$response" == "[]" ]]; then
     echo "MAC address not found in the database."
 else
-    echo "Vendor Information:"
+    # Display the formatted MAC address and the response fields
+    echo -e "$mac_address\n"
     echo "$response" | \
     sed -e 's/[{}"]/ /g' -e 's/]//g' | \
     awk -F ',' '{
         for (i=1; i<=NF; i++) {
-            if ($i ~ /startHex/) { sub(/.*startHex *: */, "", $i); start=$i }
-            if ($i ~ /endHex/) { sub(/.*endHex *: */, "", $i); print "Range: " start " - " $i }
-            if ($i ~ /company/) { sub(/.*company *: */, "", $i); print "Company: " $i }
+            if ($i ~ /startHex/) { sub(/.*startHex *: */, "", $i); start_hex=$i }
+            if ($i ~ /endHex/) { sub(/.*endHex *: */, "", $i); end_hex=$i }
+            if ($i ~ /startDec/) { sub(/.*startDec *: */, "", $i); start_dec=$i }
+            if ($i ~ /endDec/) { sub(/.*endDec *: */, "", $i); end_dec=$i }
+            if ($i ~ /company/) { sub(/.*company *: */, "", $i); company=$i }
             if ($i ~ /addressL1/) { sub(/.*addressL1 *: */, "", $i); address1=$i }
             if ($i ~ /addressL2/) { sub(/.*addressL2 *: */, "", $i); address2=$i }
             if ($i ~ /addressL3/) { sub(/.*addressL3 *: */, "", $i); address3=$i }
-            if ($i ~ /country/) { sub(/.*country *: */, "", $i); print "Country: " $i }
-            if ($i ~ /type/) { sub(/.*type *: */, "", $i); print "Type: " $i }
+            if ($i ~ /country/) { sub(/.*country *: */, "", $i); country=$i }
+            if ($i ~ /type/) { sub(/.*type *: */, "", $i); type=$i }
         }
-        # Print address in one line and remove any trailing commas or extra spaces
-        printf "Address: %s", address1
-        if (address2 != "") printf ", %s", address2
-        if (address3 != "") printf ", %s", address3
-        print ""
+        # Print structured information with labels for each field
+        printf "🌍 Country: %s\n", country
+        printf "🏢 Company: %s\n", company
+        printf "📫 Address L1: %s\n", address1
+        printf "📫 Address L2: %s\n", address2
+        printf "📫 Address L3: %s\n", address3
+        printf "📠 Hex start: %s\n", start_hex
+        printf "📠 Hex end: %s\n", end_hex
+        printf "📠 Dec start: %s\n", start_dec
+        printf "📠 Dec end: %s\n", end_dec
+        printf "📜 Type: %s\n", type
     }'
 fi
