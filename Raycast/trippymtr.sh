@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# IMPORTANT: Don't forget to give the script "execute" permission by running 'chmod +x trip.sh'
+# IMPORTANT: Don't forget to give the script "execute" permission by running 'chmod +x trippymtr.sh'
 
 # Metadata for configuration of the command in Raycast
 # @raycast.schemaVersion 1
