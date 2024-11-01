@@ -16,7 +16,7 @@
 # @raycast.author Stephen McMahon
 # @raycast.authorURL https://github.com/stephenjmcmahon
 # @raycast.dependencies Homebrew (https://brew.sh/), trippy (https://github.com/fujiapple852/trippy)
-# @raycast.credit trip (https://github.com/fujiapple852/trippy)
+# @raycast.credit trippy (https://github.com/fujiapple852/trippy)
 
 # Hidden file path
 hidden_file="$HOME/.raycast_trip_checked"
