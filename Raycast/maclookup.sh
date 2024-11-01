@@ -14,7 +14,7 @@
 # @raycast.description This script checks if the provided MAC address is randomized, formats it, and looks up the MAC vendor using the macvendorlookup API.
 # @raycast.author Stephen McMahon
 # @raycast.authorURL https://github.com/stephenjmcmahon
-# @raycast.credit Idea and print emojis layout from https://www.raycast.com/olavgjerde/looksee and macvendorlookup (https://www.macvendorlookup.com/)
+# @raycast.credit Idea and print emojis layout from https://www.raycast.com/olavgjerde/looksee and macvendorlookup (https://www.macvendorlookup.com/) for the free API.
 # @raycast.dependencies curl, python3
 
 # MAC address input from Raycast argument
