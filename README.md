@@ -2,6 +2,10 @@
 
 Scripts for personal use at work at home.
 
+## Bash
+
+* **File Ping:** Reads a list of IP addresses from an input file named `ip_list.txt`, pings each IP once at an interval of 0.5 seconds, and provides output indicating whether each IP did respond or did not respond. The output is both displayed in the console and written in an output file named `ip_result.txt`.
+
 ## Raycast
 
 * **LLDP:** Show detailed LLDP (Link Layer Discovery Protocol) neighbor(s) info using lldpd.
