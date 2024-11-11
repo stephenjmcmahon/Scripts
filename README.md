@@ -5,6 +5,7 @@ Scripts for personal use at work at home.
 ## Bash
 
 * **File Ping:** Reads a list of IP addresses from an input file named `ip_list.txt`, pings each IP once at an interval of 0.5 seconds, and provides output indicating whether each IP did respond or did not respond. The output is both displayed in the console and written in an output file named `ip_result.txt`.
+* **Subnet Sweeper:** is a network discovery tool designed to scan private IP address ranges (RFC 1918) and identify active gateway addresses. It pings .1 gateway addresses within each subnet in the specified ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). If a gateway responds, Subnet Sweeper proceeds to dynamically assess the subnet size and scan each address in that subnet, reporting back on active IPs. The results are logged in a text file, providing a quick overview of reachable devices and networks in local or lab environments.
 
 ## Raycast
 
