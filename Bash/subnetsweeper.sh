@@ -75,3 +75,12 @@ for range in "${rfc1918_ranges[@]}"; do
 done
 
 echo "Scanning completed. Results saved to $output_file."
+
+# Summarize Results by Counting Active IPs in Each Subnet
+echo -e "\nSummary of Active IPs by Subnet:"
+awk '/did ping/ {split($1, ip, "."); domain=ip[1]"."ip[2]"."ip[3]; count[domain]++}
+     END {
+         for (domain in count) {
+             print "We identified the subnet " domain ".0/24 with " count[domain] " active IPs."
+         }
+     }' "$output_file" | tee -a "$output_file"
