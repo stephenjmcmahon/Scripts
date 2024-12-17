@@ -1,8 +1,6 @@
 # Scripts
 
-Scripts for personal use at work and home.
-
-
+A collection of scripts for personal use, designed to streamline tasks at work and home. These include tools for network discovery, file and folder management, and command-line productivity enhancements.
 
 ## Bash
 
