@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# IMPORTANT: Don't forget to give the script "execute" permission by running 'chmod +x lldpd.sh'
+
+# Required parameters:
+# @raycast.schemaVersion 1
+# @raycast.title IP Calculator
+# @raycast.mode fullOutput
+# @raycast.icon 🌐
+# @raycast.packageName Network
+# @raycast.argument1 { "type": "text", "placeholder": "Enter Network (e.g., 192.168.1.0)" }
+# @raycast.argument2 { "type": "text", "placeholder": "Enter Subnet (e.g., 24 or 255.255.255.0)" }
+
+# Documentation:
+# @raycast.description Perform IP calculations using ipcalc
+# @raycast.author Stephen McMahon
+# @raycast.authorURL https://github.com/stephenjmcmahon
+# @raycast.dependencies ipcalc (https://github.com/kjokjo/ipcalc)
+
+# Validate ipcalc installation
+if ! command -v ipcalc &> /dev/null; then
+    echo "ipcalc is not installed. Please install it to use this script."
+    exit 1
+fi
+
+# Input arguments
+network=$1
+subnet=$2
+
+# Construct input for ipcalc
+if [[ "$subnet" =~ ^[0-9]+$ ]]; then
+    # CIDR format
+    ipcalc_input="$network/$subnet"
+elif [[ "$subnet" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # Standard notation
+    ipcalc_input="$network $subnet"
+else
+    echo "Invalid subnet format. Use CIDR (e.g., 24) or standard (e.g., 255.255.255.0)."
+    exit 1
+fi
+
+# Run ipcalc and display the output
+ipcalc_output=$(ipcalc $ipcalc_input 2>&1)
+
+if [ $? -ne 0 ]; then
+    echo "Error: $ipcalc_output"
+    exit 1
+fi
+
+echo "$ipcalc_output"
