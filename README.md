@@ -10,6 +10,7 @@ A collection of scripts for personal use, designed to streamline tasks at work a
 
 ## Raycast
 
+* **IP Calculator:** Leverages [ipcalc](https://github.com/kjokjo/ipcalc) to perform IP calculations. Accepts network input (e.g., 192.168.1.0) and subnet input in either CIDR notation (e.g., 24) or standard notation (e.g., 255.255.255.0). Displays results directly in Raycast, simplifying subnet planning and validation.
 * **LLDP:** Show detailed LLDP (Link Layer Discovery Protocol) neighbor(s) info using [lldpd](https://lldpd.github.io/).
 * **MAC Format:** Formats a given MAC address into a standard format: lowercase with colons every two characters.
 * **MAC Lookup:** Checks if the provided MAC address is randomized, formats it, and looks up the MAC vendor using the [macvendorlookup API](https://www.macvendorlookup.com/) which is graciously provided for free.
