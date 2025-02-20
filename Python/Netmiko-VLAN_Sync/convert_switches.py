@@ -1,4 +1,5 @@
 import json
+import re
 
 def convert_to_json(input_file, output_file="switches.json"):
     """Converts a list of hostnames and IPs into the required JSON format for VLAN Sync."""
@@ -8,16 +9,18 @@ def convert_to_json(input_file, output_file="switches.json"):
         lines = file.readlines()
 
     for line in lines:
-        parts = line.strip().split("\t")  # Splitting on tab
+        # Allow both tab (`\t`) and space (` `) as separators
+        parts = re.split(r'\s+', line.strip())  # Splitting on any whitespace (tab or space)
+
         if len(parts) == 2:
             hostname, ip = parts
             switches.append({"hostname": hostname, "ip": ip})
 
     if not switches:
-        print("❌ No valid entries found. Ensure your input file is formatted correctly.")
+        print("❌ No valid entries found. Ensure your input file is formatted correctly (hostname <TAB> IP or hostname <SPACE> IP).")
         return
 
-    # Prompt user to enter the core switch manually
+    # Prompt user for core switch details
     print("\n🔹 Do you want to set the core switch now?")
     set_core = input("Type 'yes' to enter it now, or 'no' to do it manually later: ").strip().lower()
 
