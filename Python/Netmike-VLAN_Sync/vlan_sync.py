@@ -14,9 +14,10 @@ timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 log_filename = f"logs/vlan_sync_log_{timestamp}.log"
 cmds_filename = f"logs/vlan_commands_log_{timestamp}.log"
 
-def log_message(message, log_file):
-    """Prints message to terminal and writes to log file."""
-    print(message)
+def log_message(message, log_file, print_to_terminal=True):
+    """Prints message to terminal (optional) and writes to log file."""
+    if print_to_terminal:
+        print(message)
     with open(log_file, "a") as file:
         file.write(message + "\n")
 
@@ -57,18 +58,15 @@ def fetch_core_vlans(core_switch):
 
         log_message("\n✅ VLAN list retrieved and saved to core_vlans.json", log_filename)
 
-        # Display final VLAN list after skipping defaults
-        print("\n📋 Final VLAN List from Core (Skipping Default VLANs 1002-1005):")
+        # Display the final VLAN list after skipping defaults
+        log_message("\n📋 Final VLAN List from Core (Skipping Default VLANs 1002-1005):", log_filename)
         for vlan_id, vlan_name in core_vlans.items():
-            entry = f" - VLAN {vlan_id}: {vlan_name}"
-            print(entry)
-            log_message(entry, log_filename)
+            log_message(f" - VLAN {vlan_id}: {vlan_name}", log_filename)
 
         # Confirm before applying to access switches
         confirm = input("\n❓ Do you want to proceed with syncing these VLANs to access switches? (yes/no): ").strip().lower()
         if confirm != "yes":
-            print("\n🚫 VLAN sync aborted.")
-            log_message("\n🚫 VLAN sync aborted by user.", log_filename)
+            log_message("\n🚫 VLAN sync aborted.", log_filename)
             exit(0)
 
         return core_vlans
@@ -140,10 +138,10 @@ if __name__ == "__main__":
 
     # If no flags provided, show help and exit
     if not any(vars(args).values()):
-        print("\n❌ No flags provided. Please use one of the following options:")
-        print("  --fetch   Fetch VLANs from the core switch and save to core_vlans.json")
-        print("  --sync    Sync VLANs from core_vlans.json to access switches")
-        print("  --all     Fetch VLANs from core and sync to access switches (full automation)")
+        log_message("\n❌ No flags provided. Please use one of the following options:", log_filename)
+        log_message("  --fetch   Fetch VLANs from the core switch and save to core_vlans.json", log_filename)
+        log_message("  --sync    Sync VLANs from core_vlans.json to access switches", log_filename)
+        log_message("  --all     Fetch VLANs from core and sync to access switches (full automation)", log_filename)
         exit(1)
 
     log_message(f"\n🚀 VLAN Synchronization Started - {timestamp}\n", log_filename)
