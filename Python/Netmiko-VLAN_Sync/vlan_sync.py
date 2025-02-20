@@ -24,7 +24,7 @@ def log_message(message, log_file, print_to_terminal=True):
 def parse_vlan_output(vlan_output):
     """Parses 'show vlan brief' output and returns a dictionary {vlan_id: vlan_name}."""
     vlan_mapping = {}
-    skipped_vlans = {"1002": "fddi-default", "1003": "token-ring-default", "1004": "fddinet-default", "1005": "trnet-default"}
+    skipped_vlans = {"1": "default", "1002": "fddi-default", "1003": "token-ring-default", "1004": "fddinet-default", "1005": "trnet-default"}
 
     for line in vlan_output.splitlines():
         match = re.match(r"(\d+)\s+([\w-]+)", line)
