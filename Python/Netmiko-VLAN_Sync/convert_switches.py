@@ -17,12 +17,22 @@ def convert_to_json(input_file, output_file="switches.json"):
         print("❌ No valid entries found. Ensure your input file is formatted correctly.")
         return
 
-    # Leave core_switch blank for manual entry
+    # Prompt user to enter the core switch manually
+    print("\n🔹 Do you want to set the core switch now?")
+    set_core = input("Type 'yes' to enter it now, or 'no' to do it manually later: ").strip().lower()
+
+    if set_core == "yes":
+        core_hostname = input("Enter the Core Switch Hostname: ").strip()
+        core_ip = input("Enter the Core Switch IP Address: ").strip()
+        core_switch = {"hostname": core_hostname, "ip": core_ip}
+        print("\n✅ Core switch set successfully!\n")
+    else:
+        core_switch = {"hostname": "", "ip": ""}
+        print("\n⚠️  You must manually edit `switches.json` and set the core switch before running VLAN Sync.\n")
+
+    # Construct JSON structure
     json_data = {
-        "core_switch": {
-            "hostname": "",
-            "ip": ""
-        },
+        "core_switch": core_switch,
         "switches": switches
     }
 
@@ -30,8 +40,7 @@ def convert_to_json(input_file, output_file="switches.json"):
     with open(output_file, "w") as json_out:
         json.dump(json_data, json_out, indent=4)
 
-    print(f"✅ Conversion complete! JSON saved to {output_file}")
-    print("🔹 Please manually update 'core_switch' in switches.json before running VLAN Sync.")
+    print(f"✅ Conversion complete! JSON saved to `{output_file}`")
 
 # Example usage
 input_filename = "switches_list.txt"  # Change this to your input file
