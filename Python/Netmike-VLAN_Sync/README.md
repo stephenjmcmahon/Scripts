@@ -45,26 +45,21 @@ To install them manually, run:
 Edit switches.json (Switch List)
 Define the core switch (where VLANs are retrieved from).
 List all distribution/access switches that need to be synced.
-
-## 3️⃣ Set Up VLANs & Switches
-Edit switches.json (Switch List)
-Define the core switch (where VLANs are retrieved from).
-List all distribution/access switches that need to be synced.
 Note: core_vlans.json will be automatically created from the core switch.
 
 # 🚀 Running the Script
 The script supports command-line arguments to allow flexible execution.
 
-## 1️⃣ Fetch VLANs from the Core (Only)
+## Fetch VLANs from the Core (Only)
     python3 vlan_sync.py --fetch
 Connects to the core switch.
 Retrieves VLANs and saves them in core_vlans.json.
 Displays the VLAN list for review before syncing.
 
-## 2️⃣ Sync VLANs to Access Switches (Using Existing core_vlans.json)
+## Sync VLANs to Access Switches (Using Existing core_vlans.json)
      python3 vlan_sync.py --sync
 Reads VLANs from core_vlans.json and applies them to access switches.
 
-## 3️⃣ Full Automation (Fetch VLANs & Sync)
+## Full Automation (Fetch VLANs & Sync)
     python3 vlan_sync.py --all
 Fetches VLANs from the core and syncs them to access switches.
