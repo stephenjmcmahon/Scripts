@@ -23,10 +23,10 @@ def log_message(message, log_file, print_to_terminal=True):
     with open(log_file, "a") as file:
         file.write(message + "\n")
 
-def parse_vlan_output(vlan_output):
+def parse_vlan_output(vlan_output, log_skips=True):
     """Parses 'show vlan brief' output and returns a dictionary {vlan_id: vlan_name}."""
     vlan_mapping = {}
-    
+
     # VLANs to be skipped
     skipped_vlans = {
         "1": "default",
@@ -41,8 +41,10 @@ def parse_vlan_output(vlan_output):
         if match:
             vlan_id, vlan_name = match.groups()
 
+            # Skip default VLANs, but only log when fetching from the core
             if vlan_id in skipped_vlans:
-                log_message(f"⚠️  Skipping default VLAN {vlan_id}: {skipped_vlans[vlan_id]}", console_log_filename)
+                if log_skips:
+                    log_message(f"⚠️ Skipping default VLAN {vlan_id}: {skipped_vlans[vlan_id]}", console_log_filename)
                 continue
 
             vlan_mapping[vlan_id] = vlan_name
@@ -55,10 +57,12 @@ def generate_fix_commands(access_vlans, core_vlans):
     mismatched_vlans = []
 
     for vlan_id, current_name in access_vlans.items():
-        if vlan_id in core_vlans and core_vlans[vlan_id] != current_name:
+        core_name = core_vlans.get(vlan_id)
+
+        if core_name and core_name.strip().lower() != current_name.strip().lower():
             commands.append(f"vlan {vlan_id}")
-            commands.append(f" name {core_vlans[vlan_id]}")
-            mismatched_vlans.append((vlan_id, current_name, core_vlans[vlan_id]))
+            commands.append(f" name {core_name}")
+            mismatched_vlans.append((vlan_id, current_name, core_name))
 
     return commands, mismatched_vlans
 
@@ -86,7 +90,7 @@ def fetch_core_vlans(core_switch, is_all=False):
             cmd_file.write(f"\nCommands sent to {hostname} ({ip_address}):\n")
             cmd_file.write("show vlan brief\n")
 
-        core_vlans = parse_vlan_output(vlan_output)
+        core_vlans = parse_vlan_output(vlan_output, log_skips=True)  # Log skipped VLANs only here
         conn.disconnect()
 
         # Save VLAN mapping to core_vlans.json with a timestamp
@@ -130,32 +134,35 @@ def update_switch_vlans(switch, core_vlans):
         )
 
         vlan_output = conn.send_command("show vlan brief")
-        switch_vlan_mapping = parse_vlan_output(vlan_output)
+        switch_vlan_mapping = parse_vlan_output(vlan_output, log_skips=False)
 
         commands, mismatched_vlans = generate_fix_commands(switch_vlan_mapping, core_vlans)
 
-        if mismatched_vlans:
-            log_message(f"\n🔄 VLANs needing updates on {hostname}:", console_log_filename)
-            for vlan_id, old_name, new_name in mismatched_vlans:
-                log_message(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'", console_log_filename)
+        # Log the results, whether changes are needed or not
+        with open(command_log_filename, "a") as cmd_file:
+            cmd_file.write(f"\nCommands sent to {hostname} ({ip_address}):\n")
 
-            log_message(f"\n⚙️  Applying VLAN name fixes on {hostname}...", console_log_filename)
-            conn.send_config_set(commands)
+            if mismatched_vlans:
+                log_message(f"\n🔄 VLANs needing updates on {hostname}:", console_log_filename)
+                for vlan_id, old_name, new_name in mismatched_vlans:
+                    log_message(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'", console_log_filename)
+                    cmd_file.write(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'\n")
 
-            # Save the config after applying changes
-            log_message(f"\n💾 Saving configuration on {hostname}...", console_log_filename)
-            conn.send_command("write memory")
+                log_message(f"\n⚙️  Applying VLAN name fixes on {hostname}...", console_log_filename)
+                conn.send_config_set(commands)
 
-            # Log all commands run on the switch
-            with open(command_log_filename, "a") as cmd_file:
-                cmd_file.write(f"\nCommands sent to {hostname} ({ip_address}):\n")
+                # Save the config after applying changes
+                log_message(f"\n💾 Saving configuration on {hostname}...", console_log_filename)
+                conn.send_command("write memory")
+
                 for cmd in commands:
                     cmd_file.write(cmd + "\n")
                 cmd_file.write("write memory\n")
 
-            log_message("✅ Configuration applied and saved successfully!", console_log_filename)
-        else:
-            log_message(f"✅ No changes needed on {hostname}.", console_log_filename)
+                log_message("✅ Configuration applied and saved successfully!", console_log_filename)
+            else:
+                log_message(f"✅ No changes needed on {hostname}.", console_log_filename)
+                cmd_file.write("No changes needed.\n")  # Ensures log file is created
 
         conn.disconnect()
 
@@ -203,7 +210,7 @@ if __name__ == "__main__":
             for vlan_id, vlan_name in core_vlans.items():
                 log_message(f" - VLAN {vlan_id}: {vlan_name}", console_log_filename)
 
-        confirm = input("\n❓ Do you want to proceed with applying these VLANs to access switches? (yes/no): ").strip().lower()
+        confirm = input("\n❓ Do you want to proceed with applying these VLANs to the inventoried switches? (yes/no): ").strip().lower()
         if confirm != "yes":
             log_message("\n🚫 VLAN sync aborted.", console_log_filename)
             exit(0)
