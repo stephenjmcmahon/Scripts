@@ -40,7 +40,11 @@ This script requires the following Python packages:
         pip install netmiko
 
 ## 3️⃣ Set Up VLANs & Switches
-- Edit switches.json (Switch List) manually or use convert_switches.py to automatically format a list of "hostname IPADDRESS" switches per line in a switches_list.txt file. You will still need to manually define the Core switch.
+- Edit switches.json (Switch List) manually
+- or use convert_switches.py to automatically format a list of "hostname IPADDRESS" switches per line in a switches_list.txt file. You will still need to manually define the Core switch.
+-        switches_list.txt should be in the following format per line:
+                switchhostname1 192.168.1.1
+                switchhostname2 192.168.1.2
 - Define the core switch (where VLANs are retrieved from).
 - List all distribution/access switches that need to be synced.
 - Note: core_vlans.json will be automatically created from the core switch.
