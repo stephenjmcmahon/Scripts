@@ -49,17 +49,30 @@ def parse_vlan_output(vlan_output):
 
     return vlan_mapping
 
-def fetch_core_vlans(core_switch):
+def generate_fix_commands(access_vlans, core_vlans):
+    """Compares VLAN names and generates CLI commands to correct mismatches."""
+    commands = []
+    mismatched_vlans = []
+
+    for vlan_id, current_name in access_vlans.items():
+        if vlan_id in core_vlans and core_vlans[vlan_id] != current_name:
+            commands.append(f"vlan {vlan_id}")
+            commands.append(f" name {core_vlans[vlan_id]}")
+            mismatched_vlans.append((vlan_id, current_name, core_vlans[vlan_id]))
+
+    return commands, mismatched_vlans
+
+def fetch_core_vlans(core_switch, is_all=False):
     """Connects to the core switch and retrieves VLAN info."""
     try:
-        hostname = core_switch.get("hostname", core_switch["ip"])  # Use hostname if available, otherwise IP
+        hostname = core_switch.get("hostname", core_switch["ip"])  
         ip_address = core_switch["ip"]
         command_log_filename = f"{log_directory}/{hostname}.log"
 
         log_message(f"\n🔗 Connecting to Core Switch ({hostname} - {ip_address})...", console_log_filename)
         conn = ConnectHandler(
             device_type="cisco_ios",
-            host=ip_address,  # Use IP for SSH connection
+            host=ip_address,
             username=username,
             password=password
         )
@@ -76,9 +89,13 @@ def fetch_core_vlans(core_switch):
         core_vlans = parse_vlan_output(vlan_output)
         conn.disconnect()
 
-        # Save VLAN mapping to core_vlans.json
+        # Save VLAN mapping to core_vlans.json with a timestamp
+        core_vlans_data = {
+            "timestamp": timestamp,
+            "vlans": core_vlans
+        }
         with open("core_vlans.json", "w") as json_file:
-            json.dump(core_vlans, json_file, indent=4)
+            json.dump(core_vlans_data, json_file, indent=4)
 
         log_message("\n✅ VLAN list saved to core_vlans.json", console_log_filename)
 
@@ -87,11 +104,9 @@ def fetch_core_vlans(core_switch):
         for vlan_id, vlan_name in core_vlans.items():
             log_message(f" - VLAN {vlan_id}: {vlan_name}", console_log_filename)
 
-        # Confirm before applying to access switches
-        confirm = input("\n❓ Do you want to proceed with syncing these VLANs to access switches? (yes/no): ").strip().lower()
-        if confirm != "yes":
-            log_message("\n🚫 VLAN sync aborted.", console_log_filename)
-            exit(0)
+        # If running ONLY `--fetch`, notify the user to use `--sync`
+        if not is_all:
+            log_message("\n🔹 To apply these VLANs to access switches, run:\n    python3 vlan_sync.py --sync\n", console_log_filename)
 
         return core_vlans
 
@@ -102,14 +117,14 @@ def fetch_core_vlans(core_switch):
 def update_switch_vlans(switch, core_vlans):
     """Connects to the switch, retrieves VLAN info, and corrects mismatches."""
     try:
-        hostname = switch.get("hostname", switch["ip"])  # Use hostname if available, otherwise IP
+        hostname = switch.get("hostname", switch["ip"])
         ip_address = switch["ip"]
         command_log_filename = f"{log_directory}/{hostname}.log"
 
         log_message(f"\n🔗 Connecting to {hostname} ({ip_address})...", console_log_filename)
         conn = ConnectHandler(
             device_type="cisco_ios",
-            host=ip_address,  # Use IP for SSH connection
+            host=ip_address,
             username=username,
             password=password
         )
@@ -124,7 +139,7 @@ def update_switch_vlans(switch, core_vlans):
             for vlan_id, old_name, new_name in mismatched_vlans:
                 log_message(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'", console_log_filename)
 
-            log_message(f"\n⚙️ Applying VLAN name fixes on {hostname}...", console_log_filename)
+            log_message(f"\n⚙️  Applying VLAN name fixes on {hostname}...", console_log_filename)
             conn.send_config_set(commands)
 
             # Save the config after applying changes
@@ -155,12 +170,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if not any(vars(args).values()):  # No flags provided
+    if not any(vars(args).values()):
         print("\n❌ No flags provided. Please use one of the following options:")
         print("  --fetch   Fetch VLANs from the core switch and save to core_vlans.json")
         print("  --sync    Sync VLANs from core_vlans.json to access switches")
         print("  --all     Fetch VLANs from core and sync to access switches (full automation)")
-        exit(1)  # Exit so script does not continue
+        exit(1)
 
     log_message(f"\n🚀 VLAN Synchronization Started - {timestamp}\n", console_log_filename)
 
@@ -173,12 +188,26 @@ if __name__ == "__main__":
         core_switch = switch_data["core_switch"]
 
     if args.fetch or args.all:
-        core_vlans = fetch_core_vlans(core_switch)
-    else:
-        with open("core_vlans.json", "r") as json_file:
-            core_vlans = json.load(json_file)
-
+        core_vlans = fetch_core_vlans(core_switch, is_all=args.all)
+    
     if args.sync or args.all:
+        # Load VLAN data with timestamp info
+        with open("core_vlans.json", "r") as json_file:
+            core_vlans_data = json.load(json_file)
+            last_sync_time = core_vlans_data.get("timestamp", "Unknown")
+            core_vlans = core_vlans_data.get("vlans", {})
+
+        if not args.all:  # Avoid duplicate printing in --all
+            log_message(f"\n📋 Last VLAN Sync: {last_sync_time}", console_log_filename)
+            log_message("\n🔹 VLAN List to be Applied:", console_log_filename)
+            for vlan_id, vlan_name in core_vlans.items():
+                log_message(f" - VLAN {vlan_id}: {vlan_name}", console_log_filename)
+
+        confirm = input("\n❓ Do you want to proceed with applying these VLANs to access switches? (yes/no): ").strip().lower()
+        if confirm != "yes":
+            log_message("\n🚫 VLAN sync aborted.", console_log_filename)
+            exit(0)
+
         for switch in switches:
             update_switch_vlans(switch, core_vlans)
 
