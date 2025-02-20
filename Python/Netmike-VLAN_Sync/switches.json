@@ -1,0 +1,12 @@
+{
+    "switches": [
+        {
+            "hostname": "SW-Distribution-1",
+            "ip": "192.168.1.10"
+        },
+        {
+            "hostname": "SW-Access-2",
+            "ip": "192.168.1.11"
+        }
+    ]
+}
