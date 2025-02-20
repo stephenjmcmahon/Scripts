@@ -23,11 +23,20 @@ def log_message(message, log_file):
 def parse_vlan_output(vlan_output):
     """Parses 'show vlan brief' output and returns a dictionary {vlan_id: vlan_name}."""
     vlan_mapping = {}
+    skipped_vlans = {"1002": "fddi-default", "1003": "token-ring-default", "1004": "fddinet-default", "1005": "trnet-default"}
+
     for line in vlan_output.splitlines():
         match = re.match(r"(\d+)\s+([\w-]+)", line)
         if match:
             vlan_id, vlan_name = match.groups()
+
+            # Skip default VLANs 1002-1005
+            if vlan_id in skipped_vlans:
+                log_message(f"⚠️ Skipping default VLAN {vlan_id}: {skipped_vlans[vlan_id]}", log_filename)
+                continue
+
             vlan_mapping[vlan_id] = vlan_name
+
     return vlan_mapping
 
 def fetch_core_vlans(core_switch):
@@ -46,16 +55,14 @@ def fetch_core_vlans(core_switch):
         with open("core_vlans.json", "w") as json_file:
             json.dump(core_vlans, json_file, indent=4)
 
-        log_message(f"\n✅ VLAN list retrieved and saved to core_vlans.json", log_filename)
+        log_message("\n✅ VLAN list retrieved and saved to core_vlans.json", log_filename)
 
-        # Display VLANs for user review
-        print("\n📋 Retrieved VLAN List from Core:")
+        # Display final VLAN list after skipping defaults
+        print("\n📋 Final VLAN List from Core (Skipping Default VLANs 1002-1005):")
         for vlan_id, vlan_name in core_vlans.items():
-            print(f" - VLAN {vlan_id}: {vlan_name}")
-
-        log_message("\n📋 Core VLAN List:", log_filename)
-        for vlan_id, vlan_name in core_vlans.items():
-            log_message(f" - VLAN {vlan_id}: {vlan_name}", log_filename)
+            entry = f" - VLAN {vlan_id}: {vlan_name}"
+            print(entry)
+            log_message(entry, log_filename)
 
         # Confirm before applying to access switches
         confirm = input("\n❓ Do you want to proceed with syncing these VLANs to access switches? (yes/no): ").strip().lower()
