@@ -113,12 +113,17 @@ def update_switch_vlans(switch, core_vlans):
             log_message(f"\n⚙️ Applying VLAN name fixes on {hostname} ({ip})...", log_filename)
             conn.send_config_set(commands)
 
+            # Save the config after applying changes
+            log_message(f"\n💾 Saving configuration on {hostname} ({ip})...", log_filename)
+            conn.send_command("write memory")  # This saves the config
+
             with open(cmds_filename, "a") as cmd_file:
                 cmd_file.write(f"\nCommands sent to {hostname} ({ip}):\n")
                 for cmd in commands:
                     cmd_file.write(cmd + "\n")
+                cmd_file.write("write memory\n")  # Log the save command
 
-            log_message("✅ Configuration applied successfully!", log_filename)
+            log_message("✅ Configuration applied and saved successfully!", log_filename)
         else:
             log_message(f"✅ No changes needed on {hostname} ({ip}).", log_filename)
 
