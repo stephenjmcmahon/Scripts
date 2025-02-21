@@ -1,6 +1,6 @@
 # Scripts
 
-A collection of scripts for personal use, designed to streamline tasks at work and home. These include tools for network discovery, file and folder management, and command-line productivity enhancements.
+A collection of scripts designed to automate networking tasks, streamline system management, and enhance productivity. This includes tools for network discovery, VLAN synchronization, file and folder operations, and command-line efficiency.
 
 ## Bash
 
