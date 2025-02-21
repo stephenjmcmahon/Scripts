@@ -31,7 +31,7 @@ def convert_to_json(input_file, output_file="switches.json"):
         print("\n✅ Core switch set successfully!\n")
     else:
         core_switch = {"hostname": "", "ip": ""}
-        print("\n⚠️  You must manually edit `switches.json` and set the core switch before running VLAN Sync.\n")
+        print("\n⚠️ You must manually edit `switches.json` and set the core switch before running VLAN Sync.\n")
 
     # Construct JSON structure
     json_data = {
