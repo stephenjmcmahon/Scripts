@@ -41,7 +41,7 @@ This script requires the following Python packages:
 
 ## 3️⃣ Set Up VLANs & Switches
 - Edit switches.json (Switch List) manually
-- or use convert_switches.py to automatically format a list of "hostname IPADDRESS" switches per line in a switches_list.txt file. You will still need to manually define the Core switch.
+- Or, use convert_switches.py to automatically format a list of "hostname IPADDRESS" switches per line in a switches_list.txt file. You will still need to manually define the core switch.
 -        switches_list.txt should be in the following format per line:
                 switchhostname1 192.168.1.1
                 switchhostname2 192.168.1.2
