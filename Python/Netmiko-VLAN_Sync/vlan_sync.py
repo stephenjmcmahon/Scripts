@@ -148,7 +148,7 @@ def update_switch_vlans(switch, core_vlans):
                     log_message(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'", console_log_filename)
                     cmd_file.write(f" - VLAN {vlan_id}: '{old_name}' → '{new_name}'\n")
 
-                log_message(f"\n⚙️  Applying VLAN name fixes on {hostname}...", console_log_filename)
+                log_message(f"\n⚙️ Applying VLAN name fixes on {hostname}...", console_log_filename)
                 conn.send_config_set(commands)
 
                 # Save the config after applying changes
