@@ -11,7 +11,8 @@ A collection of scripts designed to automate networking tasks, streamline system
 
 ## Python
 
-* **VLAN Sync:** Streamlines the process of standardizing VLAN names across multiple Cisco switches using Netmiko. The script retrieves VLAN configurations from a core switch, compares them with distribution/access switches, and automatically updates mismatched VLAN names to ensure consistency across the network.
+* **VLAN Sync:** Streamlines the process of standardizing VLAN names across multiple Cisco Catalyst switches using Netmiko. The script retrieves VLAN configurations from a core switch, compares them with distribution/access switches, and automatically updates mismatched VLAN names to ensure consistency across the network.
+* **Rogue Switch Hunter:** Audits all access ports across a fleet of Cisco Catalyst switches for unauthorized unmanaged switches by analyzing MAC address counts per port per VLAN. Connects via SSH using Netmiko, either dynamically retrieves or looks up user defined active VLANs per switch, and identifies ports with multiple MAC addresses. Reports findings grouped by switch and VLAN, then enforces port-security (maximum 1 MAC, violation restrict) on single-MAC and empty ports while safely skipping trunks, port-channels, and uplinks. All configuration changes are timestamped and written to an audit log for full change accountability.
 
 ## Raycast
 
