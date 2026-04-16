@@ -407,7 +407,7 @@ def main():
     print("  ACTION MENU")
     print("="*60)
     print("  a) Exit – make no changes")
-    print("  b) Lock SINGLE-MAC ports only  (port-security max 1, non-sticky)")
+    print("  b) Lock ZERO & SINGLE-MAC ports only  (port-security max 1, non-sticky)")
     print("  c) Lock ALL ports              (port-security max 1, non-sticky,")
     print("                                  INCLUDING ports with multiple MACs)")
     print()
