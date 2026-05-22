@@ -6,9 +6,9 @@ Checks if the last stack member can be safely removed and its ports
 absorbed by the switch directly above it in the stack.
 
 Usage:
-    python3 stack_feasibility.py -t 10.0.0.1,10.0.0.2
+    python3 stack_feasibility.py -t 192.168.1.1,192.168.1.2
     python3 stack_feasibility.py -f targets.txt
-    python3 stack_feasibility.py -t 10.0.0.1 --ssh-port 2222
+    python3 stack_feasibility.py -t 192.168.1.1 --ssh-port 2222
 """
 
 import argparse
