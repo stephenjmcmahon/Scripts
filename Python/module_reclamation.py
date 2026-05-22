@@ -4,8 +4,8 @@ module_reclamation.py
 Identifies unused network modules and optics on Cisco Catalyst 9200/9300 switches via SSH.
 
 Usage:
-    python module_reclamation.py --file switches.txt
-    python module_reclamation.py --host 192.168.1.10 192.168.1.11
+    python module_reclamation.py -file switches.txt
+    python module_reclamation.py -host 192.168.1.10 192.168.1.11
 
 switches.txt format — one IP or hostname per line, # for comments:
     192.168.1.10
@@ -509,21 +509,21 @@ def main():
         description="Find unused network modules and optics on Catalyst 9200/9300 switches."
     )
     src = parser.add_mutually_exclusive_group(required=True)
-    src.add_argument("--host", nargs="+", metavar="IP/HOSTNAME",
+    src.add_argument("-host", nargs="+", metavar="IP/HOSTNAME",
                      help="One or more switch IPs or hostnames")
-    src.add_argument("--file", metavar="FILE",
+    src.add_argument("-file", metavar="FILE",
                      help="Text file with one switch IP/hostname per line")
 
     parser.add_argument("-u", "--username", default=None)
     parser.add_argument("-p", "--password", default=None)
-    parser.add_argument("--timeout",     type=int, default=30)
-    parser.add_argument("--verbose",     action="store_true",
+    parser.add_argument("-timeout",     type=int, default=30)
+    parser.add_argument("-verbose",     action="store_true",
                         help="Show per-port alias detail for every module")
-    parser.add_argument("--unused-only", action="store_true",
+    parser.add_argument("-unused-only", action="store_true",
                         help="Only print unused optics (reduces output noise)")
-    parser.add_argument("--out", metavar="FILE", default=None,
+    parser.add_argument("-out", metavar="FILE", default=None,
                         help="CSV path (default: unused_modules_<timestamp>.csv)")
-    parser.add_argument("--list-modules", action="store_true",
+    parser.add_argument("-list-modules", action="store_true",
                         help="Print known module PID database and exit")
     args = parser.parse_args()
 
@@ -589,26 +589,62 @@ def main():
             print(output, end="")
         all_results.append(result)
 
-    # ── Credential check — test first host, reuse result if successful ──
-    print(f"  Verifying credentials against {hosts[0]}...", end="", flush=True)
-    preflight = collect(hosts[0], username, password, args.timeout)
-    if preflight["error"] == "Authentication failed":
-        print(f"\n\n  ERROR: Authentication failed on {hosts[0]}."
-              "\n  Please re-run with the correct credentials.\n")
+    # ── Credential check — test first reachable host before full run ──────
+    # If the first host times out, try the next one until we get a definitive
+    # auth success or failure. Abort immediately on auth failure.
+    auth_verified = False
+    preflight_result = None
+    preflight_host = None
+
+    for candidate in hosts[:5]:  # try up to first 5 hosts
+        print(f"  Verifying credentials against {candidate}...", end="", flush=True)
+        test = collect(candidate, username, password, args.timeout)
+        if test["error"] == "Authentication failed":
+            print(f"\n\n  ERROR: Authentication failed on {candidate}."
+                  "\n  Please re-run with the correct credentials.\n")
+            sys.exit(1)
+        elif test["error"]:
+            print(f" unreachable ({test['error']}), trying next...")
+            continue
+        else:
+            print(" OK\n")
+            auth_verified = True
+            preflight_result = test
+            preflight_host = candidate
+            break
+
+    if not auth_verified:
+        print("\n  ERROR: Could not reach any of the first 5 hosts.")
+        print("  Check connectivity or your switches.txt list and try again.\n")
         sys.exit(1)
-    elif preflight["error"]:
-        print(f" WARNING: {preflight['error']} — will still attempt remaining hosts\n")
-        remaining = hosts       # retry hosts[0] in the pool
-    else:
-        print(" OK\n")
+
+    # If preflight succeeded, reuse that result and skip re-SSHing that host
+    remaining = [h for h in hosts if h != preflight_host] if preflight_host else hosts
+    if preflight_result:
         counter[0] += 1
-        result, output = process_raw(preflight)
-        handle(result, output, hosts[0])
-        remaining = hosts[1:]
+        result, output = process_raw(preflight_result)
+        handle(result, output, preflight_host)
+
+    # Auth abort flag — set by worker threads on first auth failure
+    auth_failed = threading.Event()
+
+    def process_with_auth_check(host):
+        """Like process() but signals abort on auth failure."""
+        if auth_failed.is_set():
+            return {"host": host, "error": "Aborted — auth failure detected"}, \
+                   f"  [{host}] SKIPPED\n"
+        raw = collect(host, username, password, args.timeout)
+        if raw["error"] == "Authentication failed":
+            auth_failed.set()
+            with print_lock:
+                print(f"\n  ERROR: Authentication failed on {host}."
+                      "\n  Aborting remaining connections.\n")
+        return process_raw(raw)
 
     # 10 concurrent connections — safe for TACACS/ISE at ~180 switch scale
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(process, host): host for host in remaining}
+        futures = {executor.submit(process_with_auth_check, host): host
+                   for host in remaining}
         for future in as_completed(futures):
             host = futures[future]
             counter[0] += 1
