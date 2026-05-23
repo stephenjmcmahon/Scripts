@@ -1,6 +1,6 @@
 # Scripts
 
-A collection of scripts designed to automate networking tasks, streamline system management, and enhance productivity. This includes tools for network discovery, VLAN synchronization, file and folder operations, and command-line efficiency.
+A collection of scripts designed to automate networking tasks, streamline infrastructure management, and enhance operational efficiency. This includes tools for network discovery, hardware auditing and reclamation, VLAN synchronization, access port security, stack assessment, file and folder operations, and command-line utilities.
 
 ## Bash
 
