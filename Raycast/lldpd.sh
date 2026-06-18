@@ -68,6 +68,17 @@ discover_lldpcli_path() {
     exit 1
 }
 
+# Function to check if lldpd daemon is running
+check_daemon_running() {
+    if ! pgrep -x lldpd &>/dev/null; then
+        echo "lldpd daemon is not running. Start it with:"
+        echo "  sudo brew services start lldpd"
+        echo ""
+        echo "To verify it started: sudo brew services list | grep lldpd"
+        exit 1
+    fi
+}
+
 # Function to run the lldpcli command
 run_lldpcli() {
     # Run the lldpcli command with the 'show neighbors detail' argument and store output
@@ -140,6 +151,9 @@ if [ -z "$lldpcli_path" ]; then
         exit 1
     fi
 fi
+
+# Check daemon is running before attempting to connect
+check_daemon_running
 
 # Run the lldpcli command function
 run_lldpcli
