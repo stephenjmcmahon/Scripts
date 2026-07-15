@@ -8,7 +8,7 @@
 # @raycast.packageName Utility
 # @raycast.argument1 { "type": "text", "placeholder": "Enter MAC Address" }
 # Documentation:
-# @raycast.description Formats a MAC address into all common formats: colon/dash separated, upper/lowercase.
+# @raycast.description Formats a MAC address all common formats
 # @raycast.author Stephen McMahon
 # @raycast.authorURL https://github.com/stephenjmcmahon
 import sys
