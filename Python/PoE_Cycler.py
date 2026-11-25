@@ -12,11 +12,14 @@ Usage:
     python3 poe_cycler.py -f switches.txt
     python3 poe_cycler.py -s 10.40.31.5
     python3 poe_cycler.py -s 10.40.31.5,10.40.31.6
+    python3 poe_cycler.py -f switches.txt --mode off [--save]
+    python3 poe_cycler.py --restore poe_recovery_TIMESTAMP.csv [--save]
 """
 
 import argparse
 from typing import Optional
 import csv
+import os
 import getpass
 import logging
 import re
@@ -71,7 +74,9 @@ def expand_interface(short: str) -> str:
         "Fi": "FiveGigabitEthernet",
         "Fa": "FastEthernet",
     }
-    for abbrev, full in expansions.items():
+    if any(short.startswith(full) for full in expansions.values()):
+        return short
+    for abbrev, full in sorted(expansions.items(), key=lambda x: -len(x[0])):
         if short.startswith(abbrev) and not short.startswith(full):
             return short.replace(abbrev, full, 1)
     return short
@@ -115,36 +120,70 @@ def parse_mac_table(output: str, vlans: list[str]) -> dict[str, list[str]]:
     return iface_macs
 
 
-def cycle_poe(conn, interfaces: list[str], delay: int) -> list[dict]:
-    """
-    Power down all interfaces at once, wait delay seconds once, then power all back up.
-    Returns a list of result dicts per interface.
-    """
-    # Down all ports in one config block
-    down_cmds = []
-    for iface in interfaces:
-        down_cmds += [f"interface {expand_interface(iface)}", "power inline never"]
-    try:
-        conn.send_config_set(down_cmds)
-    except Exception as e:
-        return [{"interface": iface, "status": "ERROR", "detail": str(e)} for iface in interfaces]
+def config(conn, commands):
+    return conn.send_config_set(commands, error_pattern=r"(?im)^\s*%\s*(?:Invalid|Incomplete|Ambiguous|Error|Failed|Authorization|Command rejected)")
 
-    # Single wait for all devices to power down
-    time.sleep(delay)
 
-    # Bring all ports back up
+def original_poe(conn, iface):
+    output = conn.send_command(f"show running-config interface {expand_interface(iface)}")
+    if not re.search(r"(?m)^interface\s+", output):
+        raise RuntimeError("Cannot read interface configuration")
+    lines = [line.strip() for line in output.splitlines() if line.strip().startswith("power inline ")]
+    modes = [line for line in lines if re.match(r"power inline (auto|static|never)(?: |$)", line)]
+    if any(not re.fullmatch(r"power inline (?:auto|static|never)(?: [a-zA-Z0-9]+)*", line) for line in modes):
+        raise RuntimeError("Unsupported PoE mode syntax")
+    if len(modes) > 1:
+        raise RuntimeError("Ambiguous original PoE mode")
+    return modes[0] if modes else "no power inline"
+
+
+def apply_poe(conn, interfaces, delay, mode, host, hostname, journal, restore_rows=None):
     results = []
+    pending = []
     for iface in interfaces:
-        full_iface = expand_interface(iface)
+        row = {"host": host, "hostname": hostname, "interface": iface,
+               "status": "ERROR", "detail": "", "original_poe": ""}
         try:
-            conn.send_config_set([
-                f"interface {full_iface}",
-                "power inline auto",
-            ])
-            results.append({"interface": iface, "status": "CYCLED"})
+            if not re.fullmatch(r"(?:Gi(?:gabitEthernet)?|Te(?:nGigabitEthernet)?|Twe(?:ntyFiveGigE)?|Hu(?:ndredGigE)?|Fi(?:veGigabitEthernet)?)[0-9]+(?:/[0-9]+)+", iface):
+                raise RuntimeError("Invalid physical interface name")
+            full = expand_interface(iface)
+            if mode == "restore":
+                original = restore_rows[iface]["original_poe"]
+                if not re.fullmatch(r"(?:no power inline|power inline (?:auto|static|never)(?: [a-zA-Z0-9]+)*)", original):
+                    raise RuntimeError("Invalid saved PoE command")
+                row["original_poe"] = original
+                if original_poe(conn, iface) != "power inline never":
+                    raise RuntimeError("Current PoE mode is not never; refusing to overwrite")
+                config(conn, [f"interface {full}", original])
+                row["status"] = "RESTORED"
+            else:
+                original = original_poe(conn, iface)
+                row["original_poe"] = original
+                if original == "power inline never":
+                    row["status"] = "SKIPPED"
+                    row["detail"] = "Already disabled"
+                else:
+                    # Persist recovery information BEFORE changing the switch.
+                    journal(dict(row, status="PENDING"))
+                    config(conn, [f"interface {full}", "power inline never"])
+                    row["status"] = "POWERED_OFF"
+                    if mode == "cycle":
+                        pending.append(row)
         except Exception as e:
-            results.append({"interface": iface, "status": "ERROR", "detail": str(e)})
-
+            row["status"] = "ERROR"
+            row["detail"] = str(e)
+        results.append(row)
+        journal(row)
+    if pending:
+        time.sleep(delay)
+        for row in pending:
+            try:
+                config(conn, [f"interface {expand_interface(row['interface'])}", row["original_poe"]])
+                row["status"] = "CYCLED"
+            except Exception as e:
+                row["status"] = "ERROR"
+                row["detail"] = str(e)
+            journal(row)
     return results
 
 
@@ -168,7 +207,7 @@ def get_trunk_interfaces(conn) -> set:
 
 
 def process_device(host: str, username: str, password: str,
-                   vlans: list[str], delay: int) -> tuple:
+                   vlans: list[str], delay: int, mode, journal, save, restore_rows=None) -> tuple:
     """
     SSH into one switch, find locally-learned physical interfaces for the
     target VLANs, exclude trunk ports, and cycle PoE.
@@ -190,6 +229,13 @@ def process_device(host: str, username: str, password: str,
             # Pull trunk interfaces first — never touch these
             trunk_ifaces = get_trunk_interfaces(conn)
 
+            if mode == "restore":
+                interfaces = [i for i in restore_rows if expand_interface(i) not in {expand_interface(t) for t in trunk_ifaces}]
+                results = apply_poe(conn, interfaces, delay, mode, host, hostname, journal, restore_rows)
+                if save and any(r["status"] == "RESTORED" for r in results):
+                    conn.save_config()
+                return host, hostname, results, None
+
             all_iface_macs: dict[str, list[str]] = {}
 
             for vlan in vlans:
@@ -199,7 +245,7 @@ def process_device(host: str, username: str, password: str,
                 )
                 parsed = parse_mac_table(output, vlans)
                 for iface, macs in parsed.items():
-                    if iface in trunk_ifaces:
+                    if expand_interface(iface) in {expand_interface(t) for t in trunk_ifaces}:
                         continue  # skip trunks/uplinks
                     all_iface_macs.setdefault(iface, []).extend(macs)
 
@@ -207,7 +253,9 @@ def process_device(host: str, username: str, password: str,
                 return host, hostname, [], None  # nothing to cycle
 
             interfaces = sorted(all_iface_macs.keys())
-            results = cycle_poe(conn, interfaces, delay)
+            results = apply_poe(conn, interfaces, delay, mode, host, hostname, journal)
+            if save and mode == "off" and any(r["status"] == "POWERED_OFF" for r in results):
+                conn.save_config()
             return host, hostname, results, None
 
     except netmiko.exceptions.AuthenticationException:
@@ -268,14 +316,34 @@ def main() -> None:
         "-s", metavar="HOST[,HOST,...]",
         help="One or more switch IPs, comma-separated"
     )
+    group.add_argument("--restore", metavar="CSV", help="Restore original PoE settings from recovery CSV")
+    parser.add_argument("--mode", choices=["cycle", "off"], default=None)
+    parser.add_argument("--save", action="store_true", help="Save running configuration after off/restore")
     args = parser.parse_args()
+    mode = "restore" if args.restore else args.mode
+    restore_by_host = {}
+    if args.restore:
+        with open(args.restore, newline="") as fh:
+            latest = {(r["host"], r["interface"]): r for r in csv.DictReader(fh) if r.get("host") and r.get("interface")}
+        for (host, iface), r in latest.items():
+            if r.get("status") in ("PENDING", "POWERED_OFF", "ERROR") and r.get("original_poe") and r["original_poe"] != "power inline never":
+                restore_by_host.setdefault(host, {})[iface] = r
+    elif mode is None:
+        choice = input("  PoE operation [1] Cycle (default) / [2] Off indefinitely: ").strip()
+        if choice not in ("", "1", "2"):
+            parser.error("Invalid operation")
+        mode = "off" if choice == "2" else "cycle"
+    if args.save and mode == "cycle":
+        parser.error("--save is only supported for off or restore")
 
     print()
     print("  PoE Cycler")
     print("  " + "─" * 50)
 
     # ── Targets ──────────────────────────────────────────────────────────────
-    if args.f:
+    if args.restore:
+        hosts = sorted(restore_by_host)
+    elif args.f:
         try:
             with open(args.f) as fh:
                 hosts = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
@@ -290,9 +358,9 @@ def main() -> None:
         sys.exit(1)
 
     # ── VLAN prompt ───────────────────────────────────────────────────────────
-    vlan_input = input("  VLANs to cycle (comma-separated, e.g. 10,20): ").strip()
+    vlan_input = "" if mode == "restore" else input("  VLANs to cycle (comma-separated, e.g. 10,20): ").strip()
     vlans = [v.strip() for v in vlan_input.split(",") if v.strip()]
-    if not vlans:
+    if not vlans and mode != "restore":
         print("\n  ERROR: No VLANs specified.\n")
         sys.exit(1)
 
@@ -306,7 +374,7 @@ def main() -> None:
     validate_credentials(hosts, username, password)
 
     # ── PoE delay ─────────────────────────────────────────────────────────────
-    delay_input = input(
+    delay_input = "" if mode != "cycle" else input(
         f"  PoE cycle delay (seconds between 'never' → 'auto') [{DEFAULT_POE_DELAY}s default]: "
     ).strip()
     if delay_input:
@@ -321,14 +389,34 @@ def main() -> None:
     print()
     print(f"  Targets  : {len(hosts)} switch(es)")
     print(f"  VLANs    : {', '.join(vlans)}")
-    print(f"  PoE delay: {delay}s")
+    print(f"  Mode     : {mode}")
+    if mode == "cycle":
+        print(f"  PoE delay: {delay}s")
+    print(f"  Save config: {args.save}")
     print(f"  Threads  : 10")
     print()
 
     # ── Run ───────────────────────────────────────────────────────────────────
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if delay < 0:
+        parser.error("Delay cannot be negative")
+    if args.save and input("  Save ENTIRE running configuration to startup-config? Type SAVE: ").strip() != "SAVE":
+        sys.exit("Cancelled")
+    if mode == "off" and input("  Type POWER OFF to confirm: ").strip() != "POWER OFF":
+        sys.exit("Cancelled")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     csv_path = f"poe_cycler_{timestamp}.csv"
 
+    recovery_path = f"poe_recovery_{timestamp}.csv"
+    fields = ["host", "hostname", "interface", "status", "detail", "original_poe"]
+    with open(recovery_path, "x", newline="") as fh:
+        csv.DictWriter(fh, fieldnames=fields).writeheader()
+    def journal(row):
+        with print_lock:
+            with open(recovery_path, "a", newline="") as fh:
+                csv.DictWriter(fh, fieldnames=fields).writerow(row)
+                fh.flush()
+                os.fsync(fh.fileno())
+    print(f"  Recovery journal: {recovery_path}", flush=True)
     all_rows: list[dict] = []
     errors: list[tuple[str, str]] = []
     completed = 0
@@ -337,11 +425,10 @@ def main() -> None:
     def run_and_report(host: str):
         nonlocal completed
         h, hostname, results, error = process_device(
-            host, username, password, vlans, delay
+            host, username, password, vlans, delay, mode, journal, args.save, restore_by_host.get(host)
         )
-        completed += 1
-
         with print_lock:
+            completed += 1
             if error:
                 print(f"  [{completed}/{total}] {h}  →  ERROR: {error}")
                 errors.append((h, error))
@@ -352,11 +439,11 @@ def main() -> None:
                 erred  = [r for r in results if r["status"] == "ERROR"]
                 print(f"  [{completed}/{total}] {hostname} ({h})")
                 for r in results:
-                    mark = "✓" if r["status"] == "CYCLED" else "✗"
-                    print(f"    [{mark}] {r['interface']}")
+                    mark = "✓" if r["status"] in ("CYCLED", "POWERED_OFF", "RESTORED") else "-" if r["status"] == "SKIPPED" else "✗"
+                    print(f"    [{mark}] {r['interface']} — {r['status']} {r.get('detail', '')}")
                 all_rows.extend([
                     {"host": h, "hostname": hostname, "interface": r["interface"],
-                     "status": r["status"], "detail": r.get("detail", "")}
+                     "status": r["status"], "detail": r.get("detail", ""), "original_poe": r.get("original_poe", "")}
                     for r in results
                 ])
 
@@ -374,7 +461,7 @@ def main() -> None:
     print("  " + "─" * 50)
 
     with open(csv_path, "w", newline="") as cf:
-        writer = csv.DictWriter(cf, fieldnames=["host", "hostname", "interface", "status", "detail"])
+        writer = csv.DictWriter(cf, fieldnames=fields)
         writer.writeheader()
         writer.writerows(all_rows)
 
@@ -387,7 +474,9 @@ def main() -> None:
     cycled_count = sum(1 for r in all_rows if r["status"] == "CYCLED")
     error_count  = sum(1 for r in all_rows if r["status"] == "ERROR") + len(errors)
 
-    print(f"  Interfaces cycled : {cycled_count}")
+    for status in ("CYCLED", "POWERED_OFF", "RESTORED", "SKIPPED"):
+        print(f"  {status:18}: {sum(r['status'] == status for r in all_rows)}")
+    print(f"  Recovery journal : {recovery_path}")
     print(f"  Errors            : {error_count}")
     print(f"  Report saved to   : {csv_path}")
     print()
