@@ -10,8 +10,8 @@ PortChannels, SVIs, and any uplink/trunk ports.
 
 Usage:
     python3 poe_cycler.py -f switches.txt
-    python3 poe_cycler.py -s 10.40.31.5
-    python3 poe_cycler.py -s 10.40.31.5,10.40.31.6
+    python3 poe_cycler.py -s 192.168.1.5
+    python3 poe_cycler.py -s 192.168.1.5,192.168.1.6
     python3 poe_cycler.py -f switches.txt --mode off [--save]
     python3 poe_cycler.py --restore poe_recovery_TIMESTAMP.csv [--save]
 """
