@@ -134,7 +134,7 @@ def original_poe(conn, iface):
         raise RuntimeError("Unsupported PoE mode syntax")
     if len(modes) > 1:
         raise RuntimeError("Ambiguous original PoE mode")
-    return modes[0] if modes else "no power inline"
+    return modes[0] if modes else "power inline auto"
 
 
 def apply_poe(conn, interfaces, delay, mode, host, hostname, journal, restore_rows=None):
@@ -149,7 +149,7 @@ def apply_poe(conn, interfaces, delay, mode, host, hostname, journal, restore_ro
             full = expand_interface(iface)
             if mode == "restore":
                 original = restore_rows[iface]["original_poe"]
-                if not re.fullmatch(r"(?:no power inline|power inline (?:auto|static|never)(?: [a-zA-Z0-9]+)*)", original):
+                if not re.fullmatch(r"(?:power inline auto|power inline (?:auto|static|never)(?: [a-zA-Z0-9]+)*)", original):
                     raise RuntimeError("Invalid saved PoE command")
                 row["original_poe"] = original
                 if original_poe(conn, iface) != "power inline never":
@@ -483,4 +483,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()% 
